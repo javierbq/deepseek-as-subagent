@@ -11,8 +11,15 @@ from deepseek_mcp import windows_file_io
 
 MAX_HELPER_BYTES = 1024 * 1024
 PUBLISHED_DIGESTS = {
-    "skill": "5fee1ad4ee0607694d2955772215de641f13366bb17b5c6348ed0e87eaecee65",
-    "command": "de0a8464a5fc1a7ac666606b7ae46fe4334387195034667ca5e45246eabf5562",
+    "skill": {
+        "5fee1ad4ee0607694d2955772215de641f13366bb17b5c6348ed0e87eaecee65",
+        "cdd5c6ccdc1f7f49464ae881c5fa6a89cb27c2847959f7190f0dfe2b276a3825",
+        "4f8a32967acdeead14665e1ce8e1e94360ed5947fe832c142935925c279f41ad",
+    },
+    "command": {
+        "de0a8464a5fc1a7ac666606b7ae46fe4334387195034667ca5e45246eabf5562",
+        "46770ac33c359cb44eca6332fb89a2185c47e893ce12ea287be2f274ac3edb7a",
+    },
 }
 
 
@@ -142,5 +149,8 @@ def verify_published(label: str, destination: Path) -> None:
     if expected is None:
         raise AssetGuardError("helper label is invalid")
     actual = hashlib.sha256(_payload(label, destination)).hexdigest()
-    if actual != expected:
+    if isinstance(expected, (set, frozenset, list, tuple)):
+        if actual not in expected:
+            raise AssetGuardError("helper asset digest is not installer-owned")
+    elif actual != expected:
         raise AssetGuardError("helper asset digest is not installer-owned")

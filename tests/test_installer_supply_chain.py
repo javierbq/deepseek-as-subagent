@@ -465,7 +465,7 @@ class InstallerSupplyChainTests(unittest.TestCase):
             self.assertFalse(any(call.startswith("mcp add ") for call in calls))
             generations = home / ".deepseek-mcp" / "claude-venvs"
             self.assertEqual(len(list(generations.glob("generation.*"))), 1)
-            self.assertIn("保留候选运行时", result.stderr)
+            self.assertIn("retaining candidate runtime", result.stderr)
 
     @unittest.skipIf(os.name == "nt", "POSIX signal semantics")
     def test_term_after_remove_restores_registration_and_cleans_candidate(self) -> None:
@@ -530,7 +530,7 @@ class InstallerSupplyChainTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             helper_root = home / ".deepseek-mcp" / "claude-helpers"
             self.assertEqual(list(helper_root.glob("generation.*")), [])
-            self.assertIn("无法安全创建 Claude helper generation", result.stderr)
+            self.assertIn("unable to safely create Claude helper generation", result.stderr)
 
     @unittest.skipIf(os.name == "nt", "Git Bash paths differ from native Python paths")
     def test_installer_does_not_modify_shell_startup_files(self) -> None:
@@ -582,7 +582,7 @@ class InstallerSupplyChainTests(unittest.TestCase):
                 calls_before = (home / "claude.log").read_text().splitlines()
                 second = _run_installer(project, home, fake_bin, old_command)
                 self.assertNotEqual(second.returncode, 0, second.stdout)
-                self.assertIn("安装/卸载事务", second.stderr)
+                self.assertIn("install/uninstall transaction", second.stderr)
                 self.assertEqual(Path((home / "claude.state").read_text()), active)
                 self.assertTrue(active.is_file())
                 self.assertEqual(
@@ -645,7 +645,7 @@ class InstallerSupplyChainTests(unittest.TestCase):
                     self.assertNotEqual(
                         (home / "claude.state").read_text(), str(old_command)
                     )
-                    self.assertIn("核心 MCP 已安装", result.stdout)
+                    self.assertIn("Core MCP is installed", result.stdout)
                 else:
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertTrue(skill.is_symlink())
@@ -687,7 +687,7 @@ class InstallerSupplyChainTests(unittest.TestCase):
             self.assertEqual((home / "claude.state").read_text(), str(old_command))
             self.assertTrue(skill.is_symlink())
             self.assertTrue(command.is_symlink())
-            self.assertIn("未做任何删除", result.stderr)
+            self.assertIn("no files were deleted", result.stderr)
 
     def test_key_material_is_outside_xtrace_window(self) -> None:
         script = (ROOT / "install.sh").read_text(encoding="utf-8")

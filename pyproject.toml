@@ -27,7 +27,7 @@ dependencies = [
     # v1 maintenance line until a dedicated v2 migration is completed.
     "mcp[cli]>=1.28,<2",
     "openai>=1.40.0,<3",
-    "httpx[socks]>=0.27.0,<1",  # 兼容 SOCKS 代理（科学上网环境常见）
+    "httpx[socks]>=0.27.0,<1",  # SOCKS proxy support
     "google-re2>=1.1.20251105,<1.2",
 ]
 

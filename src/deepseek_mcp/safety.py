@@ -65,9 +65,9 @@ def is_unsafe_workspace_root(path: Path) -> bool:
         or is_protected_host_path(candidate)
     )
 
-# 危险命令检测的两种粒度：
-#   1) DANGEROUS_TOKENS：第一个 token（程序名）整体匹配，难以用 \ 编码绕过
-#   2) DANGEROUS_PHRASES：完整短语子串匹配（rm -rf / 这种"不可能合法"的组合）
+# Two granularities of dangerous command detection:
+#   1) DANGEROUS_TOKENS: full match of the first token (program name), hard to bypass with \
+#   2) DANGEROUS_PHRASES: full phrase substring match (combinations like 'rm -rf /' that are never legitimate)
 DANGEROUS_TOKENS = {
     "sudo",
     "su",
@@ -78,12 +78,12 @@ DANGEROUS_TOKENS = {
     "socat",
 }
 
-# 配套程序名集合（出现在 token 流任意位置即拒绝）
+# Associated program name set (rejected if found anywhere in token stream)
 DANGEROUS_ANYWHERE_TOKENS = {
     "sudo", "su",
 }
 
-# 完整短语匹配（保留旧风格，专门抓"形态独特"的危险组合）
+# Full phrase matching (catches distinct dangerous combinations)
 DANGEROUS_PHRASES = [
     "rm -rf /",
     "rm -rf ~",
@@ -100,7 +100,7 @@ DANGEROUS_PHRASES = [
     "/dev/udp/",
 ]
 
-# Python / shell / 解释器 -c 后内联代码：很容易藏恶意命令，统一拒绝
+# Inline interpreter code (-c / -e / -r): easily hides malicious commands, rejected across the board
 DANGEROUS_INLINE_INTERPRETERS = {
     ("python", "-c"), ("python3", "-c"),
     ("perl", "-e"), ("ruby", "-e"),
@@ -109,7 +109,7 @@ DANGEROUS_INLINE_INTERPRETERS = {
     ("sh", "-c"), ("bash", "-c"), ("zsh", "-c"), ("ksh", "-c"), ("dash", "-c"),
 }
 
-# 包管理"装东西"动作：易被滥用装恶意包
+# Package manager install actions: easily abused to install arbitrary packages
 PACKAGE_INSTALL_PREFIXES = [
     ("pip", "install"), ("pip3", "install"),
     ("pipx", "install"),
@@ -125,7 +125,7 @@ PACKAGE_INSTALL_PREFIXES = [
     ("dnf", "install"), ("yum", "install"),
 ]
 
-# 发布 / 推送动作：写到外部世界的"出口"
+# Publish / push actions: outbound writes to external registries
 PUBLISH_PREFIXES = [
     ("git", "push"),
     ("npm", "publish"),
@@ -136,14 +136,14 @@ PUBLISH_PREFIXES = [
 
 
 class SandboxViolation(Exception):
-    """工具调用违反沙箱规则。返回给 DeepSeek 让它知道为什么失败。"""
+    """Tool invocation violated sandbox rules. Returned to DeepSeek so it knows why it failed."""
 
 
 def resolve_safe_path(rel_or_abs: str, workspace: Path) -> Path:
-    """把 DeepSeek 传来的路径解析到绝对路径，并校验在 workspace 内。
+    """Resolve path from DeepSeek to an absolute path and verify it stays inside workspace.
 
-    返回值：解析后的绝对路径。
-    抛出：SandboxViolation 如果路径逃出 workspace。
+    Returns: resolved absolute path.
+    Raises: SandboxViolation if path escapes workspace.
     """
     if not isinstance(rel_or_abs, str):
         raise SandboxViolation("path must be a string")
@@ -176,7 +176,7 @@ def resolve_safe_path(rel_or_abs: str, workspace: Path) -> Path:
 
 
 def _tokenize(command: str) -> list[str]:
-    """安全分词。命令引号不闭合时 shlex 会抛错；回退到 split。"""
+    """Safe tokenization. Falls back to split when quotes are unclosed."""
     try:
         return shlex.split(command, comments=False, posix=True)
     except ValueError:
@@ -234,7 +234,7 @@ def check_command(command: str) -> None:
 
 
 def _split_clauses(command: str) -> list[str]:
-    """按 ; && || | 切分子句（粗粒度，不考虑引号内的分隔符 — 用足够好就行）。"""
+    """Split clauses by ; && || | (simple quote tracking to avoid treating ; inside quotes as separator)."""
     out: list[str] = []
     buf: list[str] = []
     i = 0
@@ -243,7 +243,7 @@ def _split_clauses(command: str) -> list[str]:
     in_double = False
     while i < n:
         c = command[i]
-        # 简单引号跟踪，避免 ';' 在引号里被当分隔符
+        # Simple quote tracking to avoid treating ';' inside quotes as delimiter
         if c == "'" and not in_double:
             in_single = not in_single
             buf.append(c)
@@ -270,7 +270,7 @@ def _split_clauses(command: str) -> list[str]:
 
 
 def _strip_cmd_prefix(tok: str) -> str:
-    """剥掉 'command'/'\\'/'/path/to/' 等程序名前缀，归一化判断。"""
+    """Strip 'command'/'\\'/'/path/to/' program prefixes for normalized matching."""
     # 'command curl' / '\curl' / '/usr/bin/curl' → 'curl'
     if tok.startswith("\\"):
         tok = tok[1:]

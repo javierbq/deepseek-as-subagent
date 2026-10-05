@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# install.sh — 一键把 deepseek-mcp 装到 Claude Code。
-# 跨平台：macOS / Linux (zsh|bash) + Windows Git Bash / MINGW64。
-# 幂等：重复跑安全。
+# install.sh — One-click installer for deepseek-mcp to Claude Code.
+# Cross-platform: macOS / Linux (zsh|bash) + Windows Git Bash / MINGW64.
+# Idempotent: safe to run repeatedly.
 
 set -euo pipefail
 
@@ -22,7 +22,7 @@ echo "▶ deepseek-mcp installer"
 echo "  project: $PROJECT_ROOT"
 echo ""
 
-# ===== 平台探测 =====
+# ===== Platform Detection =====
 case "$(uname -s 2>/dev/null)" in
     Linux*)               PLATFORM=linux ;;
     Darwin*)              PLATFORM=macos ;;
@@ -32,7 +32,7 @@ esac
 echo "  platform: $PLATFORM"
 echo ""
 
-# ===== Step 0: 找已安装的受支持 Python =====
+# ===== Step 0: Find supported installed Python =====
 PYTHON_CMD=""
 supported_python() {
     "$@" -c 'import sys; sys.exit(0 if (3, 10) <= sys.version_info[:2] < (3, 13) else 1)' \
@@ -59,19 +59,19 @@ find_python() {
 }
 
 if ! find_python; then
-    echo "✗ PATH 中没有受支持的 Python 3.10–3.12。"
-    echo "  请先从 https://www.python.org/downloads/ 安装 Python 3.12，再重跑。"
-    echo "  安装器不会下载或执行远程 bootstrap 脚本。"
+    echo "✗ PATH does not contain a supported Python 3.10–3.12."
+    echo "  Please install Python 3.12 from https://www.python.org/downloads/ and retry."
+    echo "  This installer does not download or execute remote bootstrap scripts."
     exit 1
 else
     echo "  Python: $($PYTHON_CMD --version) (using '$PYTHON_CMD')"
 fi
 if [ ! -r "$LOCK_FILE" ]; then
-    echo "✗ 缺少依赖锁: $LOCK_FILE"
+    echo "✗ Missing dependency lock: $LOCK_FILE"
     exit 1
 fi
 if [ ! -r "$CLAUDE_HELPERS" ]; then
-    echo "✗ 缺少 Claude helper 部署脚本: $CLAUDE_HELPERS" >&2
+    echo "✗ Missing Claude helper deployment script: $CLAUDE_HELPERS" >&2
     exit 1
 fi
 . "$CLAUDE_HELPERS"
@@ -157,14 +157,14 @@ cleanup_generation() {
     [ -n "$GENERATION_DIR" ] || return 0
     if ! $PYTHON_CMD "$PATH_GUARD" delete-generation \
         "$VENV_ROOT" "$GENERATION_DIR"; then
-        echo "warning: 无法安全清理未完成的运行时: $GENERATION_DIR" >&2
+        echo "warning: unable to safely clean incomplete runtime: $GENERATION_DIR" >&2
     fi
 }
 
 release_install_lock() {
     if [ "$LOCK_HELD" -eq 1 ]; then
         if ! rmdir "$INSTALL_LOCK"; then
-            echo "warning: 无法释放安装锁: $INSTALL_LOCK" >&2
+            echo "warning: unable to release install lock: $INSTALL_LOCK" >&2
         fi
         LOCK_HELD=0
     fi
@@ -175,15 +175,15 @@ on_exit() {
     if [ "$HELPER_TRANSACTION" -eq 1 ]; then
         trap '' INT TERM HUP
         rollback_helper_transaction \
-            || echo "warning: 安装中断后 helper 恢复不完整；请查看上方路径。" >&2
+            || echo "warning: helper recovery incomplete after interrupted install; see paths above." >&2
     fi
     if [ "$REGISTRATION_TRANSACTION" -eq 1 ]; then
         REGISTRATION_TRANSACTION=0
         trap '' INT TERM HUP
-        echo "  正在恢复 Claude MCP 注册..." >&2
+        echo "  Restoring Claude MCP registration..." >&2
         if ! restore_registration "$REGISTERED_COMMAND"; then
             PRESERVE_GENERATION=1
-            echo "✗ 注册恢复失败；保留候选运行时: $GENERATION_DIR" >&2
+            echo "✗ Registration recovery failed; retaining candidate runtime: $GENERATION_DIR" >&2
         fi
     fi
     if [ "$INSTALL_SUCCEEDED" -ne 1 ] && [ "$PRESERVE_GENERATION" -ne 1 ]; then
@@ -200,9 +200,9 @@ trap 'exit 143' TERM HUP
 # process killed with SIGKILL intentionally leaves the directory behind so the
 # next installer fails closed instead of guessing whether pruning is safe.
 if ! mkdir "$INSTALL_LOCK" 2>/dev/null; then
-    echo "✗ 另一个安装/卸载事务正在运行，或上次异常退出留下了锁:" >&2
+    echo "✗ Another install/uninstall transaction is running, or a previous run left an unreleased lock:" >&2
     echo "  $INSTALL_LOCK" >&2
-    echo "  确认没有 install.sh/uninstall.sh 运行后再手动删除该空目录。" >&2
+    echo "  Verify that no install.sh/uninstall.sh is running before manually removing this empty directory." >&2
     exit 1
 fi
 LOCK_HELD=1
@@ -212,14 +212,14 @@ LOCK_HELD=1
 if command -v "$CLAUDE_BIN" >/dev/null 2>&1; then
     CLAUDE_AVAILABLE=1
     REGISTERED_SNAPSHOT="$(registration_snapshot)" || {
-        echo "✗ deepseek MCP 注册存在但不属于此安装器，或无法安全解析。" >&2
-        echo "  为避免覆盖用户配置，本次安装已中止。" >&2
+        echo "✗ deepseek MCP registration exists but is not owned by this installer, or cannot be safely parsed." >&2
+        echo "  To avoid overwriting user configuration, installation has been aborted." >&2
         exit 1
     }
     case "$REGISTERED_SNAPSHOT" in
         present:*) REGISTERED_COMMAND="${REGISTERED_SNAPSHOT#present:}" ;;
         absent) REGISTERED_COMMAND="" ;;
-        *) echo "✗ 无法读取 deepseek MCP 注册。" >&2; exit 1 ;;
+        *) echo "✗ Unable to read deepseek MCP registration." >&2; exit 1 ;;
     esac
 fi
 
@@ -229,11 +229,11 @@ case "$PLATFORM" in
     *) chmod 700 "$GENERATION_DIR" ;;
 esac
 
-# ===== Step 1: 创建隔离 generation =====
-echo "[1/7] 创建隔离 Python 运行时..."
+# ===== Step 1: Create isolated generation =====
+echo "[1/7] Creating isolated Python runtime..."
 $PYTHON_CMD -m venv "$GENERATION_DIR"
 
-# venv 的 bin 目录在 Unix 是 bin/，Windows 是 Scripts/
+# venv bin directory is bin/ on Unix, Scripts/ on Windows
 if [ -d "$GENERATION_DIR/Scripts" ]; then
     VENV_BIN="$GENERATION_DIR/Scripts"
 elif [ -d "$GENERATION_DIR/bin" ]; then
@@ -245,14 +245,14 @@ fi
 CLI="$VENV_BIN/deepseek-mcp"
 [ ! -x "$CLI" ] && [ -x "$CLI.exe" ] && CLI="$CLI.exe"
 
-# ===== Step 2: 装包 =====
-echo "[2/7] 装 deepseek-mcp..."
+# ===== Step 2: Install packages =====
+echo "[2/7] Installing deepseek-mcp..."
 PYBIN="$VENV_BIN/python"
 [ ! -x "$PYBIN" ] && [ -x "$PYBIN.exe" ] && PYBIN="$PYBIN.exe"
 $PYTHON_CMD "$PATH_GUARD" validate-venv "$GENERATION_DIR" "$PYBIN"
 
 if ! supported_python "$PYBIN"; then
-    echo "✗ 新运行时使用了不受支持的 Python: $($PYBIN --version 2>&1 || true)"
+    echo "✗ New runtime used an unsupported Python: $($PYBIN --version 2>&1 || true)"
     exit 1
 fi
 
@@ -266,11 +266,11 @@ if [ ! -e "$CLI" ]; then
     exit 1
 fi
 
-# ===== Step 3: 配置文件 + 交互式问 API key =====
+# ===== Step 3: Configuration file + prompt for API key =====
 $PYTHON_CMD "$PATH_GUARD" prepare-dirs "$CONFIG_DIR"
 $PYTHON_CMD "$PATH_GUARD" secure-files "$CONFIG_FILE"
 if [ ! -f "$CONFIG_FILE" ]; then
-    echo "[3/7] 配置 DeepSeek..."
+    echo "[3/7] Configuring DeepSeek..."
     echo ""
 
     # Disable xtrace before any secret-bearing assignment or expansion.  Restore
@@ -280,11 +280,11 @@ if [ ! -f "$CONFIG_FILE" ]; then
         *x*) XTRACE_WAS_ON=1; set +x ;;
     esac
 
-    # 默认值
+    # Default values
     API_KEY=""
-    DEFAULT_KEY_HINT="(回车跳过，之后用编辑器填 $CONFIG_FILE)"
+    DEFAULT_KEY_HINT="(press Enter to skip, you can fill in $CONFIG_FILE later)"
 
-    # POSIX 仅在本地终端可读时交互；Windows 只允许环境变量 key。
+    # POSIX interacts only when local terminal is readable; Windows only allows env var key.
     INTERACTIVE=0
     if [ "$PLATFORM" = "windows" ]; then
         INTERACTIVE=0
@@ -295,20 +295,20 @@ if [ ! -f "$CONFIG_FILE" ]; then
     fi
 
     if [ "$INTERACTIVE" = "1" ]; then
-        echo "  使用 DeepSeek 官方服务需要 API key；本地 OpenAI-compatible 服务可以跳过。"
+        echo "  Using the official DeepSeek service requires an API key; local OpenAI-compatible services can skip this."
         echo "  DeepSeek key: https://platform.deepseek.com"
-        echo "  (沙箱自动跟随 Claude 启动目录，无需配置)"
+        echo "  (Workspace sandbox automatically follows Claude launch directory; no configuration needed)"
         echo ""
-        # -s 静默：API key 不回显到屏幕 / scrollback
-        # || true 防止 set -e 在用户 Ctrl+C 时整个脚本退出
+        # -s silent: API key is not echoed to screen / scrollback
+        # || true prevents set -e from exiting the script if user presses Ctrl+C
         if [ -e /dev/tty ] && [ -r /dev/tty ]; then
-            read -rs -p "  粘贴 DeepSeek API key $DEFAULT_KEY_HINT: " API_KEY < /dev/tty || true
+            read -rs -p "  Paste DeepSeek API key $DEFAULT_KEY_HINT: " API_KEY < /dev/tty || true
         else
-            read -rs -p "  粘贴 DeepSeek API key $DEFAULT_KEY_HINT: " API_KEY || true
+            read -rs -p "  Paste DeepSeek API key $DEFAULT_KEY_HINT: " API_KEY || true
         fi
         echo ""
         echo ""
-        # strip 前后空白（粘贴常带尾空格 / 换行）
+        # Strip leading/trailing whitespace (pastes often carry trailing spaces / newlines)
         API_KEY="$(printf '%s' "$API_KEY" | tr -d '[:space:]')"
     fi
 
@@ -324,11 +324,10 @@ if [ ! -f "$CONFIG_FILE" ]; then
     escaped_value="${API_KEY//\\/\\\\}"
     escaped_value="${escaped_value//\"/\\\"}"
 
-    # workspace 不写入：让 MCP server 用 os.getcwd() 跟随 Claude Code 启动目录
-    # 高级用户想锁定沙箱：手动加 "workspace": "/abs/path" 字段
+    # workspace is omitted so MCP server uses os.getcwd() to follow Claude Code launch directory
+    # Advanced users who want to lock the workspace can manually add "workspace": "/abs/path"
     #
-    # umask 077 在子 shell 内生效，确保 config 文件创建时就是 600（避免
-    # "先 644 后 chmod" 的 race window，本地多用户机器上有意义）
+    # umask 077 takes effect in subshell, ensuring config file is created mode 0600
     $PYTHON_CMD "$PATH_GUARD" write-exclusive "$CONFIG_FILE" <<EOF
 {
   "api_key": "$escaped_value",
@@ -348,14 +347,14 @@ EOF
         set -x
     fi
     if [ "$NEED_KEY" = "0" ]; then
-        echo "  ✓ config 已写入（含你刚才输入的 key）"
+        echo "  ✓ config written (with your entered key)"
     elif [ "$PLATFORM" = "windows" ]; then
-        echo "  ✓ config 模板已写入（保留占位符；真实 key 仅从环境变量读取）"
+        echo "  ✓ config template written (placeholder retained; real key read from environment variable only)"
     else
-        echo "  ✓ config 模板已写入（key 占位，之后手动填）"
+        echo "  ✓ config template written (key placeholder, fill manually later)"
     fi
 else
-    echo "[3/7] config.json 已存在，跳过"
+    echo "[3/7] config.json already exists, skipping"
     $PYTHON_CMD "$PATH_GUARD" secure-files "$CONFIG_FILE"
     if grep -q "PASTE_YOUR_DEEPSEEK_KEY_HERE" "$CONFIG_FILE"; then
         NEED_KEY=1
@@ -374,14 +373,14 @@ except RuntimeError as error:
     print(error)
     sys.exit(1)
 ' 2>&1)"; then
-    echo "✗ 现有 DeepSeek 配置与当前版本不兼容: $CONFIG_FILE" >&2
+    echo "✗ Existing DeepSeek configuration is incompatible with current version: $CONFIG_FILE" >&2
     echo "  $CONFIG_ERROR" >&2
-    echo "  请检查配置字段格式；删除旧的 bash_backend/bash_runtime/bash_image 配置后重试。" >&2
+    echo "  Please check field formats; remove obsolete bash_backend/bash_runtime/bash_image fields and retry." >&2
     exit 1
 fi
 
-# ===== Step 4: 在切换注册前验证新 generation =====
-echo "[4/7] 验证 MCP initialize/list_tools/ping..."
+# ===== Step 4: Verify new generation before switching registration =====
+echo "[4/7] Verifying MCP initialize/list_tools/ping..."
 "$PYBIN" "$PROJECT_ROOT/adapters/codex/mcp_smoke.py" "$CLI"
 
 # ===== Steps 5-6: optional helpers deploy only after core registration =====
@@ -428,18 +427,18 @@ switch_registration() {
 
 # Registration is the last state switch. Until here, the old runtime and user
 # registration remain untouched, so config/package/smoke failures are harmless.
-echo "[7/7] 注册 MCP server 到 Claude Code (user scope)..."
+echo "[7/7] Registering MCP server to Claude Code (user scope)..."
 if [ "$CLAUDE_AVAILABLE" -eq 0 ]; then
-    echo "       ⚠ claude CLI 不在 PATH，跳过注册"
-    echo "       (装完 Claude Code 后重跑 install.sh)"
+    echo "       ⚠ claude CLI not in PATH, skipping registration"
+    echo "       (Re-run install.sh after installing Claude Code)"
 elif ! switch_registration "$REGISTERED_COMMAND"; then
-    echo "✗ Claude MCP 注册切换失败；退出事务时将恢复旧注册。" >&2
+    echo "✗ Claude MCP registration switch failed; restoring previous registration on exit." >&2
     if [ -n "$REGISTERED_COMMAND" ]; then
-        echo "  旧运行时仍保留在: $REGISTERED_COMMAND" >&2
+        echo "  Previous runtime retained at: $REGISTERED_COMMAND" >&2
     fi
     exit 1
 else
-    echo "       ✓ 注册已切换到 $CLI"
+    echo "       ✓ Registration switched to $CLI"
     INSTALL_SUCCEEDED=1
 fi
 
@@ -454,32 +453,32 @@ deploy_claude_helpers
 if [ "$CLAUDE_AVAILABLE" -eq 1 ]; then
     if ! $PYTHON_CMD "$PATH_GUARD" prune-generations \
         "$VENV_ROOT" "$GENERATION_DIR"; then
-        echo "warning: 旧运行时 generation 清理失败；当前安装仍可用。" >&2
+        echo "warning: failed to prune old runtime generations; current installation remains usable." >&2
     fi
 else
-    echo "       ⚠ 无法确认活动注册，保留所有旧 generation"
+    echo "       ⚠ Unable to verify active registration; retaining all previous generations"
 fi
 
 echo ""
-echo "✅ 安装完成"
+echo "✅ Installation complete"
 echo "  MCP environment: $GENERATION_DIR"
 [ "$HELPER_WARNINGS" -eq 0 ] \
-    || echo "  ⚠ 核心 MCP 已安装，但部分可选 helper 未部署；请查看上方 warning。"
+    || echo "  ⚠ Core MCP is installed, but some optional helpers were not deployed; see warnings above."
 echo ""
 
 if [ "${NEED_KEY:-0}" = "1" ]; then
-    echo "没有填写 DeepSeek key。官方 DeepSeek endpoint 需要 key；本地 loopback endpoint 不需要。"
-    echo "下一步:"
+    echo "No DeepSeek key provided. Official DeepSeek endpoint requires a key; local loopback endpoints do not."
+    echo "Next steps:"
     if [ "$PLATFORM" = "windows" ]; then
-        echo "  1. 设置 DEEPSEEK_API_KEY 环境变量；不要把真实 key 写入 config.json。"
+        echo "  1. Set DEEPSEEK_API_KEY environment variable; do not store real keys in config.json."
     else
-        echo "  1. 编辑 $CONFIG_FILE 把 api_key 改成你的 DeepSeek key"
+        echo "  1. Edit $CONFIG_FILE to set api_key to your DeepSeek key"
     fi
-    echo "     本地服务请配置 base_url、flash 和 pro；需要本地认证时设置 OPENAI_API_KEY。"
-    echo "     本地服务还应将 flash_reasoning_effort / pro_reasoning_effort 设为 provider-default。"
-    echo "  2. 跑 claude，输入: 请调用 ping 工具"
+    echo "     For local models, configure base_url, flash, and pro; set OPENAI_API_KEY if auth is required."
+    echo "     For local models, also set flash_reasoning_effort / pro_reasoning_effort to provider-default."
+    echo "  2. Run claude, and enter: Please call the ping tool"
     echo ""
-    # Windows 不打开配置文件，避免误把真实 key 持久化。
+    # On Windows, don't open config file to avoid accidental persistence of secrets.
     if [ "$PLATFORM" != "windows" ]; then
         if command -v code >/dev/null 2>&1; then
             code "$CONFIG_FILE"
@@ -488,13 +487,13 @@ if [ "${NEED_KEY:-0}" = "1" ]; then
         fi
     fi
 else
-    echo "立即试用:"
-    echo "  cd <你的项目目录> && claude     # 已在运行的 claude 需要重启才能加载新 MCP"
-    echo "  > /ds 检查当前项目并总结代码结构            # 强制派 DeepSeek 干活"
-    echo "  > 请调用 ping 工具                       # 验证 MCP 连接 + 看沙箱根"
+    echo "Try it now:"
+    echo "  cd <your-project-directory> && claude     # Running claude sessions must be restarted to load new MCP"
+    echo "  > /ds inspect current project and summarize code structure   # Force delegate to DeepSeek"
+    echo "  > Please call the ping tool                                  # Verify MCP connection and workspace root"
     echo ""
-    echo "自动派工: 主对话里说\"批量提取 i18n 到 JSON\"之类的任务，Claude 会自己派给 DeepSeek"
-    echo "关闭派工: 运行 DEEPSEEK_MODE=off claude（仅当前 Claude 会话）"
+    echo "Automatic delegation: In conversation, tasks like \"batch extract i18n to JSON\" will be delegated automatically by Claude."
+    echo "Disable delegation: Run DEEPSEEK_MODE=off claude (for current Claude session only)"
 fi
 echo ""
-echo "卸载: ./uninstall.sh"
+echo "Uninstall: ./uninstall.sh"

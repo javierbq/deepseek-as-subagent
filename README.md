@@ -1,6 +1,8 @@
 # deepseek-as-subagent
 
-**English** · [简体中文](README.zh-CN.md)
+**English (Translated Fork)** · [Upstream Repo](https://github.com/PsChina/deepseek-as-subagent) · [简体中文](README.zh-CN.md)
+
+> **Note**: This fork translates all Claude Code skills (`delegate-to-deepseek`), slash commands (`/ds`), installer messages, and code comments into English.
 
 [![Python](https://img.shields.io/badge/python-3.10--3.12-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
